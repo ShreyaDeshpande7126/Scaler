@@ -42,7 +42,7 @@ Hard
 
 High urgency, angry enterprise users
 Requires escalation + correct department + priority
-Observation Space: Each ticket contains:
+Observation Space: Each ticket contains:-
 
 {
   "text": "string",
