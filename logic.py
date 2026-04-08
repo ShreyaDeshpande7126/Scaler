@@ -1,22 +1,7 @@
-def decide_action(state):
-    text = state["text"].lower()
-
-    priority = "high" if state["urgency"] == "high" else "low"
-    escalate = state["sentiment"] == "angry"
-
-    if "refund" in text or "payment" in text:
-        department = "billing"
-    elif "bug" in text or "crash" in text:
-        department = "technical"
+def decide_action(ticket):
+    if ticket["urgency"] == "high":
+        return {"priority": "high", "department": "tech", "escalate": True}
+    elif ticket["urgency"] == "medium":
+        return {"priority": "medium", "department": "support", "escalate": False}
     else:
-        department = "support"
-
-    confidence = 0.95 if escalate else 0.7
-
-    return {
-        "priority": priority,
-        "department": department,
-        "escalate": escalate,
-        "request_info": False,
-        "confidence": confidence
-    }
+        return {"priority": "low", "department": "general", "escalate": False}
