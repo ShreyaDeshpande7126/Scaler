@@ -1,85 +1,49 @@
-from flask import Flask, render_template
+import gradio as gr
+from fastapi import FastAPI
+import uvicorn
 from environment import SupportEnv
 from logic import decide_action
-import matplotlib.pyplot as plt
-import os
-
-app = Flask(__name__)
 
 env = SupportEnv("tickets.json")
 
-@app.route("/")
-def home():
-    return render_template("welcome.html")
+app = FastAPI()
 
+@app.post("/reset")
+def reset():
+    return env.reset()
 
-@app.route("/dashboard")
-def dashboard():
-    state = env.reset()
+@app.post("/step")
+def step(action: dict):
+    state, reward, done, _ = env.step(action)
+    return {"state": state, "reward": reward, "done": done}
+
+@app.get("/state")
+def state():
+    if env.index < len(env.tickets):
+        return env.tickets[env.index]
+    return {"message": "done"}
+
+def run_ai():
+    if env.index >= len(env.tickets):
+        return "🎉 All tickets processed!"
+
+    state = env.tickets[env.index]
     action = decide_action(state)
     _, reward, _, _ = env.step(action)
 
-    steps, avg = env.get_metrics()
+    return f"""
+Ticket: {state['text']}
 
-    return render_template(
-        "index.html",
-        ticket=state,
-        action=action,
-        reward=reward,
-        steps=steps,
-        avg=avg
-    )
+Priority: {action['priority']}
+Department: {action['department']}
+Escalate: {action['escalate']}
 
+Reward: {reward}
+"""
 
-@app.route("/next")
-def next_step():
-    state = env.tickets[env.index]
-    action = decide_action(state)
-    _, reward, done, _ = env.step(action)
+demo = gr.Interface(fn=run_ai, inputs=[], outputs="text")
 
-    steps, avg = env.get_metrics()
-
-    return render_template(
-        "index.html",
-        ticket=state,
-        action=action,
-        reward=reward,
-        steps=steps,
-        avg=avg,
-        done=done
-    )
-
-
-@app.route("/auto")
-def auto_run():
-    env.reset()
-
-    results = []
-    state = env.tickets[0]
-    done = False
-
-    while not done:
-        action = decide_action(state)
-        next_state, reward, done, _ = env.step(action)
-
-        results.append(reward)
-        state = next_state
-
-    steps, avg = env.get_metrics()
-
-    # create graph
-    os.makedirs("static", exist_ok=True)
-
-    plt.figure()
-    plt.plot(results)
-    plt.title("Reward per Ticket")
-    plt.xlabel("Steps")
-    plt.ylabel("Reward")
-    plt.savefig("static/graph.png")
-    plt.close()
-
-    return render_template("auto.html", avg=avg)
-
+app = gr.mount_gradio_app(app, demo, path="/")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    uvicorn.run(app, host="0.0.0.0", port=7860)
